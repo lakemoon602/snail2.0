@@ -17,6 +17,11 @@ test.rar
 test.tar.gz
 test.tgz
 test.tar.bz2
+bin.zip
+bin.rar
+bin.tar.gz
+bin.tgz
+bin.tar.bz2
 backup.zip
 backup.rar
 backup.tar.gz
