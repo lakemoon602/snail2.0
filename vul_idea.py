@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 '''
 name: JetBrains IDE workspace.xml文件泄露
+referer: http://www.ab156.com/vul/view/vulid/3631.html
+author: Lucifer
 description: 网站存在JetBrains系列IDE的工作区文件，可以泄露整个工程的目录结构信息。通过下载workspace.xml，可直接获取整个工程的目录结构，发现敏感文件，为渗透中收集信息、发现漏洞提供了极大的便利。
 '''
 import sys
@@ -18,16 +20,18 @@ class jetbrains_ide_workspace_disclosure_BaseVerify:
         }
         payload = "/.idea/workspace.xml"
         vulnurl = self.url + payload
+        domain=self.url.split("/")[2]
+        tag=5
         try:
             req = requests.get(vulnurl, headers=headers, timeout=1)
             req.encoding = req.apparent_encoding
             if r"<?xml version=" in req.text and r"project version" in req.text and req.status_code==200:
                 print("[+]存在idea文件泄露(中危)\t"+vulnurl)
-                return
+                return [domain,tag,payload]
             else:
-                return "[-]NO vuln!"
+                return False
         except:
-            return "[-] ======>连接超时"
+            return False
 
 if __name__ == "__main__":
     testVuln = jetbrains_ide_workspace_disclosure_BaseVerify(sys.argv[1])

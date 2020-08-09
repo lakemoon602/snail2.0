@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 '''
 name: .DS_store文件泄露扫描
+referer: unknown
+author: Lucifer
 description: 忘记了删除.DS_store文件。
 '''
 import sys
@@ -17,17 +19,19 @@ class ds_check_BaseVerify:
         }
         payload = "/.DS_Store"
         vulnurl = self.url + payload
+        domain=self.url.split("/")[2]
+        tag=4
         try:
             req = requests.get(vulnurl, headers=headers, timeout=1)
             req.encoding = req.apparent_encoding
             if r"ShowStatusBar" in req.text and req.status_code==200:
                 print("[+]存在.DS_store文件泄露漏洞(低危)\t"+vulnurl)
-                return
+                return [domain,tag,payload]
             else:
-                return "[-]NO vuln!"
+                return False
 
         except:
-            return "[-] ======>连接超时"
+            return False
 
 if __name__ == "__main__":
     testVuln = ds_check_BaseVerify(sys.argv[1])

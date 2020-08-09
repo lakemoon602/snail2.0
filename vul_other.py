@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 '''
 name: 源码泄露扫描
+referer: unknown
+author: Lucifer
 description: 忘记了删除源码。
 '''
 import sys
@@ -26,13 +28,15 @@ class other_check_BaseVerify:
             time.sleep(1)
             try:
                 vulnurl = self.url + payload
+                domain=self.url.split("/")[2]
+                tag=1
                 req=requests.head(vulnurl,headers=headers,timeout=1)
                 if req.status_code==200 and int(req.headers["Content-Length"])>=1000000:
                     print("[+]存在敏感文件泄露(高危)\t"+vulnurl)
-                    return
+                    return [domain,tag,payload]
             except:
                 pass
-        return "[-]NO vuln!"
+        return False
 
 if __name__ == "__main__":
     testVuln = other_check_BaseVerify(sys.argv[1])

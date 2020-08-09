@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 '''
 name: git源码泄露扫描
+referer: unknown
+author: Lucifer
 description: 忘记了删除.git目录而导致的漏洞。
 '''
 import sys
@@ -17,17 +19,19 @@ class git_check_BaseVerify:
         }
         payload = "/.git/config"
         vulnurl = self.url + payload
+        domain=self.url.split("/")[2]
+        tag=2
         try:
             req = requests.get(vulnurl, headers=headers, timeout=1)
             req.encoding = req.apparent_encoding
             if r"repositoryformatversion" in req.text and req.status_code==200:
                 print("[+]存在git源码泄露漏洞(高危)\t"+vulnurl)
-                return
+                return [domain,tag,payload]
             else:
-                return "[-]NO vuln!"
+                return False
 
         except:
-            return "[-] ======>连接超时"
+            return False
 
 if __name__ == "__main__":
     testVuln = git_check_BaseVerify(sys.argv[1])

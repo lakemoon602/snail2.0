@@ -1,21 +1,22 @@
 # coding=utf-8
+# python snail.py domains.txt timeout //timeout代表延时
 import requests
 import sys
 import re
 import time
 import threading
 import os
+import sqlite3
+import json
+from threadpool import ThreadPool,makeRequests
 from vul_apache import apache_server_status_disclosure_BaseVerify
 from vul_bak import bak_check_BaseVerify
-from vul_crossadmin import crossdomain_find_BaseVerify
 from vul_dstore import ds_check_BaseVerify
 from vul_git import git_check_BaseVerify
-from vul_jspconf import jsp_conf_find_BaseVerify
 from vul_idea import jetbrains_ide_workspace_disclosure_BaseVerify
 from vul_svn import svn_check_BaseVerify
-from vul_options import options_method_BaseVerify
 from vul_other import other_check_BaseVerify
-
+from db import DB
 
 banner='''
    _____                   _   _ 
@@ -29,12 +30,12 @@ banner='''
 [!]start threading snail
 [!]Dection starting...
 '''
-lock=threading.Lock()
-max_thread=200
-count=0
+max_thread=150
 https="https://"
 http="http://"
 domains=[]
+timeout=0
+pool = ThreadPool(max_thread) # 设置线程池
 
 #获取域名
 def getDomain(file):
@@ -43,72 +44,183 @@ def getDomain(file):
     		domains.append(line[:-1])
     	f.close()
             
+#百度云观测接口
+def baiduyun(domain):
+    try:
+        res=requests.get("http://ce.baidu.com/index/getRelatedSites?site_address="+domain)
+        data=json.loads(res.text)
+        domain=[]
+        for value in data["data"]:
+            domain.append(value["domain"])
+        return domain
+    except:
+        return domain
 
-def scan(domain):
+#爬取域名，加入队列
+def spider(url):
+    try:
+        headers = {
+            "User-Agent":"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_8; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50"
+        }
+        rex=url.split('.')
+        if rex[-1]=="com":
+            s=rex[-2]+"."+rex[-1]
+        elif rex[-1]=="cn":
+            if rex[-2] in ["gov","edu"]:
+                s=rex[-3]+"."+rex[-2]+"."+rex[-1]
+        patt=re.compile(r"http[s]?:.{1,40}."+s)
+        res=requests.get(url,headers=headers,timeout=3)
+        data=patt.findall(res.text)
+        data=list(set(data))
+        tmp=[]
+        for d in data:
+            d=d.split("/")[2]
+            if d not in domains:
+                domains.append(d)
+                tmp.append(d)
+        if len(tmp)==0:
+            return
+        if len(tmp)==1:
+            params=[[tmp,timeout]]
+            request = makeRequests(scan, params)
+            [pool.putRequest(req) for req in request]
+            return
+        params = [([d, timeout], None) for d in tmp]
+        request = makeRequests(scan, params)
+        [pool.putRequest(req) for req in request]
+    except:
+        pass
+
+def scan(domain,timeout):
     url=http+domain
     urls=https+domain
-    apache_server_status_disclosure_BaseVerify(url).run()
-    time.sleep(2)
-    apache_server_status_disclosure_BaseVerify(urls).run()
-    time.sleep(2)
-    bak_check_BaseVerify(url).run()
-    time.sleep(2)
-    bak_check_BaseVerify(urls).run()
-    time.sleep(2)
-    git_check_BaseVerify(url).run()
-    time.sleep(2)
-    git_check_BaseVerify(urls).run()
-    time.sleep(2)
-    jetbrains_ide_workspace_disclosure_BaseVerify(url).run()
-    time.sleep(2)
-    jetbrains_ide_workspace_disclosure_BaseVerify(urls).run()
-    time.sleep(2)
-    jsp_conf_find_BaseVerify(url).run()
-    time.sleep(2)
-    jsp_conf_find_BaseVerify(urls).run()
-    time.sleep(2)
-    svn_check_BaseVerify(url).run()
+    db=DB()
+    #print(domain+"开始进行检测!"+str(timeout))
+    #检测数据库是否已存在记录
+    if db.check(domain):
+        return False
+
+    #百度云观测窗口获取子域名
+    baidu=baiduyun(domain)
+    tmp=[]
+    for si in baidu:
+        if si not in domains:
+                domains.append(si)
+                tmp.append(si)
+    if len(tmp)!=0 and len(tmp)!=1:
+        params = [([d, timeout], None) for d in tmp]
+        request = makeRequests(scan, params)
+        [pool.putRequest(req) for req in request]
+
+    #抓取链接
+    spider(url)
     time.sleep(1)
-    svn_check_BaseVerify(urls).run()
-    time.sleep(2)
-    ds_check_BaseVerify(url).run()
-    time.sleep(2)
-    ds_check_BaseVerify(urls).run()
+    spider(urls)
     time.sleep(1)
-    other_check_BaseVerify(url).run()
-    time.sleep(2)
-    other_check_BaseVerify(urls).run()
-    #print("[-]"+domain+" 检测完毕")
+    
+    db=DB()
+    
+    res=apache_server_status_disclosure_BaseVerify(url).run()
+    if res:
+        db.insert(res[0],res[1],res[2])
+        return True
+    time.sleep(timeout)
+
+    res=apache_server_status_disclosure_BaseVerify(urls).run()
+    if res:
+        db.insert(res[0],res[1],res[2])
+        return True
+    time.sleep(timeout)
+
+    
+    res=bak_check_BaseVerify(url).run()
+    if res:
+        db.insert(res[0],res[1],res[2])
+        return True
+
+    time.sleep(timeout)
+    res=bak_check_BaseVerify(urls).run()
+    if res:
+        db.insert(res[0],res[1],res[2])
+        return True
+    
+    time.sleep(timeout)
+    res=git_check_BaseVerify(url).run()
+    if res:
+        db.insert(res[0],res[1],res[2])
+        return True
+
+    time.sleep(timeout)
+    res=git_check_BaseVerify(urls).run()
+    if res:
+        db.insert(res[0],res[1],res[2])
+        return True
+    
+    time.sleep(timeout)
+    res=jetbrains_ide_workspace_disclosure_BaseVerify(url).run()
+    if res:
+        db.insert(res[0],res[1],res[2])
+        return True
+
+    time.sleep(timeout)
+    res=jetbrains_ide_workspace_disclosure_BaseVerify(urls).run()
+    if res:
+        db.insert(res[0],res[1],res[2])
+        return True
+
+    time.sleep(timeout)
+    res=svn_check_BaseVerify(url).run()
+    if res:
+        db.insert(res[0],res[1],res[2])
+        return True
+
+    time.sleep(timeout)
+    res=svn_check_BaseVerify(urls).run()
+    if res:
+        db.insert(res[0],res[1],res[2])
+        return True
+    time.sleep(timeout)
+
+    res=ds_check_BaseVerify(url).run()
+    if res:
+        db.insert(res[0],res[1],res[2])
+        return True
+    time.sleep(timeout)
+    res=ds_check_BaseVerify(urls).run()
+    if res:
+        db.insert(res[0],res[1],res[2])
+        return True
+    time.sleep(timeout)
+   
+    res=other_check_BaseVerify(url).run()
+    if res:
+        db.insert(res[0],res[1],res[2])
+        return True
+    time.sleep(timeout)
+
+    res=other_check_BaseVerify(urls).run()
+    if res:
+        db.insert(res[0],res[1],res[2])
+        return True
+    # 检测完成
+    db.insert(domain,0,'null')
+    #print("[*]"+domain+"detection over!")
 
 if __name__=="__main__":
 
     print(banner)
-
     #获取域名
     getDomain(sys.argv[1])
+    timeout=int(sys.argv[2])
     thread=[]
     #多线程调用
-    #daemon参数，主线程随子线程结束还是子线程随主线程结束,默认为False
     start=time.time()
-    for domain in domains:
-        t=threading.Thread(target=scan,args=(domain,),daemon=True)
-        thread.append(t)
-    
-    #维持线程队列
-    for t in thread:
-        t.start()
-        while True:
-            if len(threading.enumerate())<=max_thread:
-                #print("当前线程数: "+str(len(threading.enumerate())),end="")
-                time.sleep(1)
-                break
-    print(threading.enumerate())      
-    while True:
-        #print(len(threading.enumerate()))
-        if len(threading.enumerate())==1:
-            break
-        time.sleep(5)
-        
+    params = [([d, timeout], None) for d in domains]
+    request = makeRequests(scan, params)
+    [pool.putRequest(req) for req in request]
+    pool.wait()
+    #while True:
+     #   pass
     print('[!]Detection over in '+str(time.time()-start).split('.')[0]+'s.')
 
 

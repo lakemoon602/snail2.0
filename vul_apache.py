@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 '''
 name: apache server-status信息泄露
+referer: unknown
+author: Lucifer
 description: apache的状态信息文件泄露。
 '''
 import sys
@@ -18,17 +20,19 @@ class apache_server_status_disclosure_BaseVerify:
         }
         payload = "/server-status"
         vulnurl = self.url + payload
+        domain=self.url.split("/")[2]
+        tag=6
         try:
             req = requests.get(vulnurl, headers=headers, timeout=3, allow_redirects=False)
             req.encoding = req.apparent_encoding
             if r"Server uptime" in req.text and r"Server Status" in req.text and req.status_code==200:
                 print("[+]存在apache状态文件泄露(低危)\t"+vulnurl)
-                return
+                return [domain,tag,payload]
             else:
-                return
+                return False
 
         except:
-            return
+            return False
 
 if __name__ == "__main__":
     testVuln = apache_server_status_disclosure_BaseVerify(sys.argv[1])

@@ -15,12 +15,23 @@ def genWeak(name):
     res=[]
     
     name=name.split('/')[2]
-    com1=name.split('.')[1]
-    com2=name.split('.')[0]+name.split('.')[0]
+    pres=name.split('.')
+
+    com=pres[0]+pres[1]
+    com1=None
+    if len(pres)>4:
+        com1=pres[0]+pres[1]+pres[2]
+
     for ext in exts:
+        res.append("/"+com+ext)
+        #print(com+ext)
+        if com1:
+            res.append("/"+com1+ext)
         res.append("/"+name+ext)
-        res.append("/"+com1+ext)
-        res.append("/"+com2+ext)
+        #print(name+ext)
+        for pre in pres:
+            res.append("/"+pre+ext)
+            #print(pre+ext)
     return res
 
 class bak_check_BaseVerify:
@@ -31,6 +42,8 @@ class bak_check_BaseVerify:
         headers = {
             "User-Agent":"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_8; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50"
         }
+        domain=self.url.split("/")[2]
+        tag=1
         payloads = genWeak(self.url)
         for payload in payloads:
             time.sleep(1)
@@ -39,11 +52,11 @@ class bak_check_BaseVerify:
                 req=requests.head(vulnurl,headers=headers,timeout=1)
                 if req.status_code==200 and int(req.headers["Content-Length"])>=1000000:
                     print("[+]存在源码泄露\t"+vulnurl)
-                    return
+                    return [domain,tag,payload]
             except:
                 pass
-        return "[-]NO vuln!"
+        return False
 
 if __name__ == "__main__":
     testVuln = bak_check_BaseVerify(sys.argv[1])
-    print(testVuln.run())
+    testVuln.run()
