@@ -14,25 +14,22 @@ def genWeak(name):
     exts=['.rar','.zip','.7z','.tar','.tar.7z','.tar.gz','.tar.bz2','.tgz']
     res=[]
     
-    name=name.split('/')[2]
-    pres=name.split('.')
-
-    com=pres[0]+pres[1]
-    com1=None
-    if len(pres)>4:
-        com1=pres[0]+pres[1]+pres[2]
-
+    element=name.split('.')
+    #print(element)
     for ext in exts:
-        res.append("/"+com+ext)
-        #print(com+ext)
-        if com1:
-            res.append("/"+com1+ext)
-        res.append("/"+name+ext)
-        #print(name+ext)
-        for pre in pres:
-            res.append("/"+pre+ext)
-            #print(pre+ext)
-    return res
+        domain=""
+        for ele in element:
+            res.append(ele+ext)
+            domain+='.'+ele
+            res.append(domain+ext)
+    data=[]
+    for s in res:
+        data.append(s.strip('.'))
+    data=list(set(data))
+    # res=map(lambda s:s.strip('.'),res)
+    # 疑惑
+    #print(data)
+    return data
 
 class bak_check_BaseVerify:
     def __init__(self, url):
@@ -44,7 +41,7 @@ class bak_check_BaseVerify:
         }
         domain=self.url.split("/")[2]
         tag=1
-        payloads = genWeak(self.url)
+        payloads = genWeak(domain)
         for payload in payloads:
             time.sleep(1)
             try:
@@ -58,5 +55,5 @@ class bak_check_BaseVerify:
         return False
 
 if __name__ == "__main__":
-    testVuln = bak_check_BaseVerify(sys.argv[1])
+    testVuln = bak_check_BaseVerify("http://www.nankai.edu.cn")
     testVuln.run()

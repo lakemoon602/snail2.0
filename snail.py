@@ -34,7 +34,7 @@ max_thread=150
 https="https://"
 http="http://"
 domains=[]
-timeout=0
+time_out=0
 pool = ThreadPool(max_thread) # 设置线程池
 
 #获取域名
@@ -57,7 +57,7 @@ def baiduyun(domain):
         return domain
 
 #爬取域名，加入队列
-def spider(url):
+def spider(url,time_out):
     try:
         headers = {
             "User-Agent":"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_8; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50"
@@ -81,21 +81,31 @@ def spider(url):
         if len(tmp)==0:
             return
         if len(tmp)==1:
-            params=[[tmp,timeout]]
-            request = makeRequests(scan, params)
-            [pool.putRequest(req) for req in request]
+            #params=[[tmp,time_out],None]
+            #request = makeRequests(scan, params)
+            #[pool.putRequest(req) for req in request]
             return
-        params = [([d, timeout], None) for d in tmp]
+        params = [([d, time_out], None) for d in tmp]
         request = makeRequests(scan, params)
         [pool.putRequest(req) for req in request]
     except:
         pass
 
+def is_live(url):
+    headers = {
+            "User-Agent":"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_8; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50"
+        }
+    try:
+        resp=requests.get(url,headers,timeout=3)
+        return True
+    except:
+        return False
+
 def scan(domain,timeout):
     url=http+domain
     urls=https+domain
     db=DB()
-    #print(domain+"开始进行检测!"+str(timeout))
+
     #检测数据库是否已存在记录
     if db.check(domain):
         return False
@@ -112,76 +122,71 @@ def scan(domain,timeout):
         request = makeRequests(scan, params)
         [pool.putRequest(req) for req in request]
 
-    #抓取链接
-    spider(url)
-    time.sleep(1)
-    spider(urls)
-    time.sleep(1)
-    
-    db=DB()
-    
-    res=apache_server_status_disclosure_BaseVerify(url).run()
-    if res:
-        db.insert(res[0],res[1],res[2])
-        return True
-    time.sleep(timeout)
+    if is_live(url):
+        #抓取链接
+        spider(url,timeout)
+        time.sleep(1)
+        res=apache_server_status_disclosure_BaseVerify(url).run()
+        if res:
+            db.insert(res[0],res[1],res[2])
+            return True
+        time.sleep(timeout)
+        res=bak_check_BaseVerify(url).run()
+        if res:
+            db.insert(res[0],res[1],res[2])
+            return True
+        time.sleep(timeout)
+        res=git_check_BaseVerify(url).run()
+        if res:
+            db.insert(res[0],res[1],res[2])
+            return True
+        time.sleep(timeout)
+        res=jetbrains_ide_workspace_disclosure_BaseVerify(url).run()
+        if res:
+            db.insert(res[0],res[1],res[2])
+            return True
+        time.sleep(timeout)
+        res=svn_check_BaseVerify(url).run()
+        if res:
+            db.insert(res[0],res[1],res[2])
+            return True
+        time.sleep(timeout)
+        res=ds_check_BaseVerify(url).run()
+        if res:
+            db.insert(res[0],res[1],res[2])
+            return True
+        time.sleep(timeout)
+        res=other_check_BaseVerify(url).run()
+        if res:
+            db.insert(res[0],res[1],res[2])
+            return True
 
+    if not is_live(urls):
+        db.insert(domain,0,'null')
+ 
+    spider(urls,timeout)
+    time.sleep(1)
     res=apache_server_status_disclosure_BaseVerify(urls).run()
     if res:
         db.insert(res[0],res[1],res[2])
         return True
     time.sleep(timeout)
-
-    
-    res=bak_check_BaseVerify(url).run()
-    if res:
-        db.insert(res[0],res[1],res[2])
-        return True
-
-    time.sleep(timeout)
     res=bak_check_BaseVerify(urls).run()
     if res:
         db.insert(res[0],res[1],res[2])
         return True
-    
-    time.sleep(timeout)
-    res=git_check_BaseVerify(url).run()
-    if res:
-        db.insert(res[0],res[1],res[2])
-        return True
-
     time.sleep(timeout)
     res=git_check_BaseVerify(urls).run()
     if res:
         db.insert(res[0],res[1],res[2])
         return True
-    
-    time.sleep(timeout)
-    res=jetbrains_ide_workspace_disclosure_BaseVerify(url).run()
-    if res:
-        db.insert(res[0],res[1],res[2])
-        return True
-
     time.sleep(timeout)
     res=jetbrains_ide_workspace_disclosure_BaseVerify(urls).run()
     if res:
         db.insert(res[0],res[1],res[2])
         return True
-
-    time.sleep(timeout)
-    res=svn_check_BaseVerify(url).run()
-    if res:
-        db.insert(res[0],res[1],res[2])
-        return True
-
     time.sleep(timeout)
     res=svn_check_BaseVerify(urls).run()
-    if res:
-        db.insert(res[0],res[1],res[2])
-        return True
-    time.sleep(timeout)
-
-    res=ds_check_BaseVerify(url).run()
     if res:
         db.insert(res[0],res[1],res[2])
         return True
@@ -191,26 +196,20 @@ def scan(domain,timeout):
         db.insert(res[0],res[1],res[2])
         return True
     time.sleep(timeout)
-   
-    res=other_check_BaseVerify(url).run()
-    if res:
-        db.insert(res[0],res[1],res[2])
-        return True
-    time.sleep(timeout)
-
     res=other_check_BaseVerify(urls).run()
     if res:
         db.insert(res[0],res[1],res[2])
         return True
     # 检测完成
     db.insert(domain,0,'null')
-    #print("[*]"+domain+"detection over!")
 
 if __name__=="__main__":
 
     print(banner)
     #获取域名
     getDomain(sys.argv[1])
+    # 去重
+    domains=list(set(domains))
     timeout=int(sys.argv[2])
     thread=[]
     #多线程调用
