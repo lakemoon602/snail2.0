@@ -45,7 +45,7 @@ class bak_check_BaseVerify:
         for payload in payloads:
             time.sleep(1)
             try:
-                vulnurl = self.url + payload
+                vulnurl = self.url +'/'+payload
                 req=requests.head(vulnurl,headers=headers,timeout=1)
                 if req.status_code==200 and int(req.headers["Content-Length"])>=1000000:
                     print("[+]存在源码泄露\t"+vulnurl)

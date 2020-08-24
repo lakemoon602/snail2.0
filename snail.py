@@ -54,7 +54,7 @@ def baiduyun(domain):
             domain.append(value["domain"])
         return domain
     except:
-        return domain
+        return [domain]
 
 #爬取域名，加入队列
 def spider(url,time_out):
@@ -81,11 +81,11 @@ def spider(url,time_out):
         if len(tmp)==0:
             return
         if len(tmp)==1:
-            #params=[[tmp,time_out],None]
-            #request = makeRequests(scan, params)
-            #[pool.putRequest(req) for req in request]
-            return
-        params = [([d, time_out], None) for d in tmp]
+            params=([tmp,time_out],None)
+            request = makeRequests(scan, params)
+            [pool.putRequest(req) for req in request]
+            return  
+        params = [([d, time_out],None) for d in tmp]
         request = makeRequests(scan, params)
         [pool.putRequest(req) for req in request]
     except:
@@ -101,7 +101,9 @@ def is_live(url):
     except:
         return False
 
-def scan(domain,timeout):
+def scan(domain,timeout=1):
+    if not isinstance(domain,str):
+        return
     url=http+domain
     urls=https+domain
     db=DB()
@@ -109,7 +111,7 @@ def scan(domain,timeout):
     #检测数据库是否已存在记录
     if db.check(domain):
         return False
-
+    time.sleep(1)
     #百度云观测窗口获取子域名
     baidu=baiduyun(domain)
     tmp=[]
@@ -208,18 +210,14 @@ if __name__=="__main__":
     print(banner)
     #获取域名
     getDomain(sys.argv[1])
-    # 去重
     domains=list(set(domains))
     timeout=int(sys.argv[2])
     thread=[]
-    #多线程调用
     start=time.time()
     params = [([d, timeout], None) for d in domains]
     request = makeRequests(scan, params)
     [pool.putRequest(req) for req in request]
     pool.wait()
-    #while True:
-     #   pass
     print('[!]Detection over in '+str(time.time()-start).split('.')[0]+'s.')
 
 
